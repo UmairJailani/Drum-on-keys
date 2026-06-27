@@ -1,10 +1,10 @@
-const CACHE = 'drumkit-v1';
+const CACHE = 'drumkit-v2';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
   './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
   './sounds/crash.mp3',
   './sounds/kick-bass.mp3',
   './sounds/snare.mp3',
