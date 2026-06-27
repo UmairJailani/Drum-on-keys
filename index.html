@@ -1,27 +1,796 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8" />
-    <title>Drum Kit</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link
-      href="https://fonts.googleapis.com/css?family=Arvo"
-      rel="stylesheet"
-    />
-  </head>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Drum Kit</title>
+<meta property="og:title" content="Drum Kit — 3D Interactive"/>
+<meta property="og:image" content="https://umairjailani.github.io/Drum-on-keys/preview.png"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+canvas { display: block; }
 
-  <body>
-    <h1 id="title">Drum 🥁 Kit</h1>
-    <div class="set">
-      <button class="w drum">w</button>
-      <button class="a drum">a</button>
-      <button class="s drum">s</button>
-      <button class="d drum">d</button>
-      <button class="j drum">j</button>
-      <button class="k drum">k</button>
-      <button class="l drum">l</button>
-    </div>
+#labels { position: fixed; inset: 0; pointer-events: none; }
+.lbl {
+  position: absolute;
+  transform: translate(-50%, -80%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.lbl .key {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: rgba(0,0,0,0.75);
+  border: 1.5px solid var(--c, #f97316);
+  color: var(--c, #f97316);
+  font: 700 13px/26px 'SF Mono', 'Courier New', monospace;
+  text-align: center;
+  box-shadow: 0 0 12px var(--c, #f97316), inset 0 1px 0 rgba(255,255,255,0.1);
+  backdrop-filter: blur(4px);
+}
+.lbl .name {
+  font: 600 8px/1 system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+}
+.lbl.lit .key {
+  background: var(--c, #f97316);
+  color: #000;
+  box-shadow: 0 0 20px var(--c, #f97316), 0 0 40px var(--c, #f97316);
+}
 
-    <script src="app.js" charset="utf-8"></script>
-  </body>
+#ui {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+#title {
+  font: 800 18px/1 system-ui;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #c8a060;
+}
+#title span { color: #f43f5e; }
+#hint {
+  font: 500 10px/1 system-ui;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.18);
+}
+</style>
+</head>
+<body>
+
+<div id="labels"></div>
+<div id="ui">
+  <div id="title">DRUM <span>KIT</span></div>
+  <div id="hint">W A S D · J K L · or click</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+const sounds = {
+  w: new Audio('sounds/tom-1.mp3'),
+  a: new Audio('sounds/tom-2.mp3'),
+  s: new Audio('sounds/tom-3.mp3'),
+  d: new Audio('sounds/tom-4.mp3'),
+  j: new Audio('sounds/snare.mp3'),
+  k: new Audio('sounds/crash.mp3'),
+  l: new Audio('sounds/kick-bass.mp3'),
+};
+
+// ── Renderer ──────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.3;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+// ── Scene ─────────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080608);
+scene.fog = new THREE.Fog(0x080608, 18, 35);
+
+// Environment for PBR metal reflections
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// ── Camera ────────────────────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0.5, 11, 6.5);
+camera.lookAt(0.3, 0, -0.5);
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.3, 0, -0.5);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minPolarAngle = Math.PI * 0.1;
+controls.maxPolarAngle = Math.PI * 0.5;
+controls.minDistance = 6;
+controls.maxDistance = 20;
+controls.update();
+
+// ── Lights ────────────────────────────────────────────────────────────────────
+const ambient = new THREE.AmbientLight(0x1a1008, 0.6);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xfff4e0, 2.8);
+keyLight.position.set(-5, 12, 4);
+keyLight.castShadow = true;
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 30;
+keyLight.shadow.camera.left = -8;
+keyLight.shadow.camera.right = 8;
+keyLight.shadow.camera.top = 8;
+keyLight.shadow.camera.bottom = -8;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.bias = -0.001;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x4060ff, 0.5);
+fillLight.position.set(6, 8, -3);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xff8020, 0.4);
+rimLight.position.set(0, 4, -8);
+scene.add(rimLight);
+
+const overhead = new THREE.PointLight(0xffecd0, 1.5, 12, 2);
+overhead.position.set(0.5, 5, 0.5);
+overhead.castShadow = true;
+overhead.shadow.mapSize.set(512, 512);
+scene.add(overhead);
+
+// ── Textures ─────────────────────────────────────────────────────────────────
+function makeCymbalTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  // Bronze base
+  const g = ctx.createRadialGradient(256,256,0, 256,256,256);
+  g.addColorStop(0,   '#f8d060');
+  g.addColorStop(0.2, '#e0a830');
+  g.addColorStop(0.5, '#c07820');
+  g.addColorStop(0.8, '#a06018');
+  g.addColorStop(1,   '#704010');
+  ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
+  // Hammered dents
+  for (let i = 0; i < 280; i++) {
+    const x = Math.random()*512, y = Math.random()*512;
+    const r = 3 + Math.random()*14;
+    const dg = ctx.createRadialGradient(x,y,0, x,y,r);
+    dg.addColorStop(0,   'rgba(40,20,0,0.35)');
+    dg.addColorStop(0.5, 'rgba(40,20,0,0.1)');
+    dg.addColorStop(1,   'rgba(40,20,0,0)');
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  // Concentric rings
+  ctx.strokeStyle = 'rgba(60,30,0,0.18)'; ctx.lineWidth = 1.2;
+  for (let r = 22; r < 256; r += 20) {
+    ctx.beginPath(); ctx.arc(256,256,r,0,Math.PI*2); ctx.stroke();
+  }
+  // Radial spokes
+  ctx.strokeStyle = 'rgba(60,30,0,0.1)'; ctx.lineWidth = 0.8;
+  for (let a = 0; a < Math.PI*2; a += Math.PI/12) {
+    ctx.beginPath(); ctx.moveTo(256,256);
+    ctx.lineTo(256+Math.cos(a)*256, 256+Math.sin(a)*256); ctx.stroke();
+  }
+  // Bright highlight arc
+  const hg = ctx.createRadialGradient(180,180,0, 256,256,256);
+  hg.addColorStop(0, 'rgba(255,230,150,0.25)');
+  hg.addColorStop(0.4,'rgba(255,220,100,0.1)');
+  hg.addColorStop(1,  'rgba(255,220,100,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0,0,512,512);
+  return new THREE.CanvasTexture(c);
+}
+
+function makeWoodTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#2e1a0e'; ctx.fillRect(0,0,512,512);
+  // Wood grain lines
+  for (let i = 0; i < 40; i++) {
+    const y = i * 13 + Math.random()*8;
+    const darkness = 0.04 + Math.random()*0.08;
+    ctx.strokeStyle = `rgba(0,0,0,${darkness})`; ctx.lineWidth = 1 + Math.random()*3;
+    ctx.beginPath(); ctx.moveTo(0, y);
+    for (let x = 0; x < 512; x += 20) {
+      ctx.lineTo(x, y + Math.sin(x*0.05)*3 + Math.random()*2);
+    }
+    ctx.stroke();
+  }
+  // Vertical plank lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
+  for (let x = 60; x < 512; x += 62 + Math.random()*20) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,512); ctx.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+function makeCarpetTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128,128,0, 128,128,128);
+  g.addColorStop(0,   '#6a2020');
+  g.addColorStop(0.5, '#4a1810');
+  g.addColorStop(0.8, '#3a1008');
+  g.addColorStop(1,   '#200800');
+  ctx.fillStyle = g; ctx.fillRect(0,0,256,256);
+  // Weave pattern
+  ctx.strokeStyle = 'rgba(120,40,20,0.3)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 256; i += 6) {
+    ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(256,i); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,256); ctx.stroke();
+  }
+  // Border
+  ctx.strokeStyle = 'rgba(180,80,40,0.4)'; ctx.lineWidth = 4;
+  ctx.strokeRect(12,12,232,232);
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,100,50,0.3)';
+  ctx.strokeRect(20,20,216,216);
+  return new THREE.CanvasTexture(c);
+}
+
+function makeDrumHeadTexture(tinted = false) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = tinted ? '#e8e0d0' : '#f2f2f2';
+  ctx.fillRect(0,0,256,256);
+  const g = ctx.createRadialGradient(128,128,0, 128,128,128);
+  g.addColorStop(0,   'rgba(255,255,255,0.7)');
+  g.addColorStop(0.5, 'rgba(230,230,230,0.2)');
+  g.addColorStop(0.85,'rgba(180,180,180,0.3)');
+  g.addColorStop(1,   'rgba(140,140,140,0.5)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,256,256);
+  // Centre ring
+  ctx.strokeStyle = 'rgba(160,160,160,0.4)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(128,128,22,0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(160,160,160,0.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(128,128,40,0,Math.PI*2); ctx.stroke();
+  // Highlight
+  const hg = ctx.createRadialGradient(95,90,0, 128,128,80);
+  hg.addColorStop(0, 'rgba(255,255,255,0.35)');
+  hg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(c);
+}
+
+const cymbalTex  = makeCymbalTexture();
+const woodTex    = makeWoodTexture();
+const carpetTex  = makeCarpetTexture();
+const headTex    = makeDrumHeadTexture();
+const headTexB   = makeDrumHeadTexture(true);
+
+woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
+woodTex.repeat.set(4, 4);
+carpetTex.wrapS = carpetTex.wrapT = THREE.RepeatWrapping;
+carpetTex.repeat.set(3, 3);
+
+// ── Shared materials ──────────────────────────────────────────────────────────
+const chromeMat = new THREE.MeshStandardMaterial({
+  color: 0xd8d8d8, roughness: 0.07, metalness: 1.0
+});
+const blackLacquerMat = new THREE.MeshStandardMaterial({
+  color: 0x111111, roughness: 0.18, metalness: 0.1
+});
+const headMat = new THREE.MeshStandardMaterial({
+  map: headTex, roughness: 0.82, metalness: 0,
+});
+const headMatB = new THREE.MeshStandardMaterial({
+  map: headTexB, roughness: 0.82, metalness: 0,
+});
+const cymbalMat = new THREE.MeshStandardMaterial({
+  map: cymbalTex, roughness: 0.28, metalness: 0.88,
+  envMapIntensity: 1.5,
+});
+const cymbalBellMat = new THREE.MeshStandardMaterial({
+  color: 0xf0c040, roughness: 0.18, metalness: 0.95, envMapIntensity: 2.0,
+});
+const floorMat = new THREE.MeshStandardMaterial({
+  map: woodTex, roughness: 0.88, metalness: 0,
+});
+const carpetMat = new THREE.MeshStandardMaterial({
+  map: carpetTex, roughness: 1.0, metalness: 0,
+});
+const standMat = new THREE.MeshStandardMaterial({
+  color: 0x222222, roughness: 0.4, metalness: 0.6,
+});
+const thronemMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a1a, roughness: 0.9, metalness: 0.05,
+});
+
+// ── Helper: drum ─────────────────────────────────────────────────────────────
+function makeDrum(rx, ry, h, shellMat = blackLacquerMat, hMat = headMat, hMatB = headMat, lugs = 8) {
+  const group = new THREE.Group();
+
+  // Shell (multi-material: side, top, bottom)
+  const shellGeo = new THREE.CylinderGeometry(rx, rx, h, 36);
+  const shell = new THREE.Mesh(shellGeo, [shellMat, hMat, hMatB]);
+  shell.castShadow = true; shell.receiveShadow = true;
+  group.add(shell);
+
+  // Top chrome rim (torus)
+  const rimGeo = new THREE.TorusGeometry(rx + 0.03, 0.022, 6, 36);
+  const rimT = new THREE.Mesh(rimGeo, chromeMat);
+  rimT.rotation.x = Math.PI / 2;
+  rimT.position.y = h / 2 + 0.01;
+  rimT.castShadow = true;
+  group.add(rimT);
+
+  // Bottom chrome rim
+  const rimB = rimT.clone();
+  rimB.position.y = -(h / 2 + 0.01);
+  group.add(rimB);
+
+  // Lugs
+  const lugGeo = new THREE.BoxGeometry(0.04, 0.075, 0.05);
+  for (let i = 0; i < lugs; i++) {
+    const angle = (i / lugs) * Math.PI * 2 + Math.PI / lugs;
+    const lug = new THREE.Mesh(lugGeo, chromeMat);
+    lug.position.x = Math.cos(angle) * (rx + 0.058);
+    lug.position.z = Math.sin(angle) * (rx + 0.058);
+    lug.rotation.y = -angle;
+    group.add(lug);
+  }
+
+  // Tension rods
+  const rodGeo = new THREE.CylinderGeometry(0.007, 0.007, h * 0.65, 6);
+  for (let i = 0; i < lugs; i++) {
+    const angle = (i / lugs) * Math.PI * 2;
+    const rod = new THREE.Mesh(rodGeo, chromeMat);
+    rod.position.x = Math.cos(angle) * (rx + 0.04);
+    rod.position.z = Math.sin(angle) * (rx + 0.04);
+    rod.rotation.y = -angle;
+    group.add(rod);
+  }
+
+  return { group, shell };
+}
+
+// ── Helper: cymbal ────────────────────────────────────────────────────────────
+function makeCymbal(r, bellR = 0.13, tiltX = 0.2, tiltZ = 0) {
+  const pivot = new THREE.Group();
+
+  // Body — slightly tapered
+  const bodyGeo = new THREE.CylinderGeometry(r, r * 0.82, 0.018, 52);
+  const body = new THREE.Mesh(bodyGeo, cymbalMat);
+  body.castShadow = true; body.receiveShadow = true;
+  pivot.add(body);
+
+  // Bell dome
+  const bellGeo = new THREE.SphereGeometry(bellR, 20, 10, 0, Math.PI*2, 0, Math.PI/2.2);
+  const bell = new THREE.Mesh(bellGeo, cymbalBellMat);
+  bell.position.y = 0.012;
+  bell.castShadow = true;
+  pivot.add(bell);
+
+  // Edge rim
+  const edgeGeo = new THREE.TorusGeometry(r, 0.012, 5, 52);
+  const edge = new THREE.Mesh(edgeGeo, cymbalBellMat);
+  edge.rotation.x = Math.PI / 2;
+  pivot.add(edge);
+
+  // Tilt
+  pivot.rotation.x = tiltX;
+  pivot.rotation.z = tiltZ;
+
+  return { pivot, body };
+}
+
+// ── Helper: thin stand ────────────────────────────────────────────────────────
+function makeStand(h = 1.0, spread = 0.3) {
+  const group = new THREE.Group();
+  const poleGeo = new THREE.CylinderGeometry(0.018, 0.018, h, 8);
+  const pole = new THREE.Mesh(poleGeo, standMat);
+  pole.position.y = h / 2;
+  group.add(pole);
+  // 3 legs
+  const legGeo = new THREE.CylinderGeometry(0.012, 0.012, spread * 1.2, 6);
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2;
+    const leg = new THREE.Mesh(legGeo, standMat);
+    leg.rotation.z = Math.PI / 2 - 0.3;
+    leg.rotation.y = angle;
+    leg.position.x = Math.cos(angle) * spread * 0.4;
+    leg.position.z = Math.sin(angle) * spread * 0.4;
+    leg.position.y = 0.05;
+    group.add(leg);
+  }
+  return group;
+}
+
+// ── Floor ─────────────────────────────────────────────────────────────────────
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(24, 24),
+  floorMat
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Carpet
+const carpet = new THREE.Mesh(
+  new THREE.CircleGeometry(4.2, 64),
+  carpetMat
+);
+carpet.rotation.x = -Math.PI / 2;
+carpet.position.y = 0.002;
+carpet.receiveShadow = true;
+scene.add(carpet);
+
+// ── Build drum kit ────────────────────────────────────────────────────────────
+// Map: key → { group, animFn }
+const drumPieces = {};
+const hitObjects = []; // for raycasting
+
+function addDrum(key, group, y, animFn) {
+  group.position.y = y;
+  scene.add(group);
+  // Tag all meshes with key for raycasting
+  group.traverse(obj => {
+    if (obj.isMesh) { obj.userData.key = key; hitObjects.push(obj); }
+  });
+  drumPieces[key] = { group, animFn };
+}
+
+// ── Kick / Bass drum ─────────────────────────────────────────────────────────
+{
+  const { group, shell } = makeDrum(0.98, 0.98, 0.8, blackLacquerMat, headMatB, headMat, 12);
+  group.position.set(0.4, 0.44, 0.2);
+
+  // Hit: head dips
+  const topGeo = new THREE.CircleGeometry(0.94, 36);
+  // Shell already has built-in top cap — animate shell scale
+  addDrum('l', group, 0, () => {
+    let t = 0;
+    return () => {
+      t += 0.09;
+      shell.scale.z = 1 - Math.sin(t * 2.5) * 0.06 * Math.exp(-t * 2);
+      shell.scale.x = 1 + Math.sin(t * 2.5) * 0.015 * Math.exp(-t * 2);
+      return t < 4;
+    };
+  });
+}
+
+// ── Snare ─────────────────────────────────────────────────────────────────────
+{
+  const silverMat = new THREE.MeshStandardMaterial({ color: 0xb8b8b8, roughness: 0.2, metalness: 0.7 });
+  const { group, shell } = makeDrum(0.57, 0.57, 0.2, silverMat, headMat, headMat, 8);
+  group.position.set(-1.4, 0.24, 0.5);
+  addDrum('j', group, 0, () => {
+    let t = 0;
+    return () => {
+      t += 0.1;
+      group.position.y = Math.sin(t * 5) * 0.012 * Math.exp(-t * 3);
+      return t < 3;
+    };
+  });
+  // Snare stand
+  const stand = makeStand(0.45, 0.6);
+  stand.position.set(-1.4, 0, 0.5);
+  scene.add(stand);
+}
+
+// ── High Tom ──────────────────────────────────────────────────────────────────
+{
+  const { group, shell } = makeDrum(0.4, 0.4, 0.3, blackLacquerMat, headMat, headMat, 6);
+  group.position.set(-0.7, 1.02, -1.0);
+  addDrum('w', group, 0, () => {
+    let t = 0;
+    return () => {
+      t += 0.1;
+      group.rotation.x = Math.sin(t * 6) * 0.06 * Math.exp(-t * 4);
+      return t < 2.5;
+    };
+  });
+  // Mount post
+  const postGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.65, 6);
+  const post = new THREE.Mesh(postGeo, standMat);
+  post.position.set(-0.7, 0.7, -1.0);
+  scene.add(post);
+}
+
+// ── Mid Tom ───────────────────────────────────────────────────────────────────
+{
+  const { group, shell } = makeDrum(0.46, 0.46, 0.32, blackLacquerMat, headMat, headMat, 6);
+  group.position.set(0.55, 1.08, -1.25);
+  addDrum('a', group, 0, () => {
+    let t = 0;
+    return () => {
+      t += 0.1;
+      group.rotation.x = Math.sin(t * 6) * 0.06 * Math.exp(-t * 4);
+      return t < 2.5;
+    };
+  });
+  const postGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.7, 6);
+  const post = new THREE.Mesh(postGeo, standMat);
+  post.position.set(0.55, 0.72, -1.25);
+  scene.add(post);
+}
+
+// ── Floor Tom ─────────────────────────────────────────────────────────────────
+{
+  const { group, shell } = makeDrum(0.68, 0.68, 0.44, blackLacquerMat, headMat, headMat, 8);
+  group.position.set(2.0, 0.4, 0.8);
+  addDrum('d', group, 0, () => {
+    let t = 0;
+    return () => {
+      t += 0.09;
+      group.rotation.z = Math.sin(t * 4) * 0.04 * Math.exp(-t * 3);
+      return t < 3;
+    };
+  });
+  // 3 legs
+  const legGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.6, 6);
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2 + Math.PI / 6;
+    const leg = new THREE.Mesh(legGeo, standMat);
+    leg.position.set(2.0 + Math.cos(angle) * 0.5, 0.18, 0.8 + Math.sin(angle) * 0.5);
+    leg.rotation.x = Math.cos(angle) * 0.15;
+    leg.rotation.z = -Math.sin(angle) * 0.15;
+    scene.add(leg);
+  }
+}
+
+// ── Crash Cymbal (left) ───────────────────────────────────────────────────────
+{
+  const { pivot, body } = makeCymbal(0.95, 0.13, 0.22, 0.08);
+  pivot.position.set(-3.2, 2.1, -0.5);
+  scene.add(pivot);
+  pivot.traverse(obj => { if (obj.isMesh) { obj.userData.key = 'k'; hitObjects.push(obj); } });
+  drumPieces['k'] = {
+    group: pivot,
+    animFn: () => {
+      let t = 0;
+      return () => {
+        t += 0.06;
+        pivot.rotation.x = 0.22 + Math.sin(t * 9) * 0.18 * Math.exp(-t * 3.5);
+        pivot.rotation.z = 0.08 + Math.sin(t * 7 + 1) * 0.1 * Math.exp(-t * 3.5);
+        return t < 2.8;
+      };
+    }
+  };
+  const stand = makeStand(2.1, 0.5);
+  stand.position.set(-3.2, 0, -0.5);
+  scene.add(stand);
+}
+
+// ── Hi-Hat ────────────────────────────────────────────────────────────────────
+{
+  const { pivot: p1 } = makeCymbal(0.6, 0.09, 0.1, -0.03);
+  const { pivot: p2 } = makeCymbal(0.6, 0.09, -0.08, 0.02);
+  p1.position.set(-2.5, 1.1, 0.7);
+  p2.position.set(-2.5, 1.08, 0.7);
+  scene.add(p1); scene.add(p2);
+  [p1, p2].forEach(p => p.traverse(obj => {
+    if (obj.isMesh) { obj.userData.key = 's'; hitObjects.push(obj); }
+  }));
+  const hhGroup = { p1, p2 };
+  drumPieces['s'] = {
+    group: p1,
+    animFn: () => {
+      let t = 0;
+      return () => {
+        t += 0.07;
+        const d = Math.sin(t * 8) * 0.06 * Math.exp(-t * 4);
+        p1.rotation.x = 0.1 + d;
+        p2.rotation.x = -0.08 - d * 0.5;
+        return t < 2;
+      };
+    }
+  };
+  const stand = makeStand(1.1, 0.4);
+  stand.position.set(-2.5, 0, 0.7);
+  scene.add(stand);
+}
+
+// ── Ride Cymbal (right, larger) ───────────────────────────────────────────────
+{
+  const { pivot } = makeCymbal(1.1, 0.16, 0.18, -0.06);
+  pivot.position.set(3.0, 1.8, -0.3);
+  // Not interactive — decorative stand-in (no key)
+  scene.add(pivot);
+  const stand = makeStand(1.8, 0.5);
+  stand.position.set(3.0, 0, -0.3);
+  scene.add(stand);
+}
+
+// ── Throne ────────────────────────────────────────────────────────────────────
+{
+  const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8);
+  const pole = new THREE.Mesh(poleGeo, standMat);
+  pole.position.set(0, 0.6, 3.0);
+  scene.add(pole);
+  const seatGeo = new THREE.SphereGeometry(0.32, 20, 10, 0, Math.PI*2, 0, Math.PI*0.55);
+  const seat = new THREE.Mesh(seatGeo, thronemMat);
+  seat.position.set(0, 1.22, 3.0);
+  seat.rotation.x = Math.PI;
+  seat.castShadow = true;
+  scene.add(seat);
+  // 3 throne legs
+  const legGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.8, 6);
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2;
+    const leg = new THREE.Mesh(legGeo, standMat);
+    leg.position.set(Math.cos(angle)*0.35, 0.22, 3.0 + Math.sin(angle)*0.35);
+    leg.rotation.x = Math.sin(angle) * 0.2;
+    leg.rotation.z = Math.cos(angle) * 0.2;
+    scene.add(leg);
+  }
+}
+
+// ── Drum sticks ───────────────────────────────────────────────────────────────
+{
+  const stickMat = new THREE.MeshStandardMaterial({ color: 0xc8a060, roughness: 0.6 });
+  const tipMat   = new THREE.MeshStandardMaterial({ color: 0xe8c880, roughness: 0.4 });
+  function makeStick(px, pz, rotY, rotZ) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.007, 1.8, 8), stickMat);
+    g.add(body);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), tipMat);
+    tip.position.y = 0.92;
+    g.add(tip);
+    g.position.set(px, 0.36, pz);
+    g.rotation.y = rotY;
+    g.rotation.z = rotZ;
+    scene.add(g);
+  }
+  makeStick(-0.3, 1.4,  0.4, 0.45);
+  makeStick( 0.4, 1.55, 0.2, 0.4);
+}
+
+// ── HTML Labels ───────────────────────────────────────────────────────────────
+const labelData = [
+  { key: 'l', name: 'Kick',      color: '#f43f5e', pos: new THREE.Vector3(0.4, 1.1, 0.2) },
+  { key: 'j', name: 'Snare',     color: '#38bdf8', pos: new THREE.Vector3(-1.4, 0.8, 0.5) },
+  { key: 'w', name: 'Hi Tom',    color: '#f97316', pos: new THREE.Vector3(-0.7, 1.6, -1.0) },
+  { key: 'a', name: 'Mid Tom',   color: '#f97316', pos: new THREE.Vector3(0.55, 1.7, -1.25) },
+  { key: 'd', name: 'Floor Tom', color: '#f97316', pos: new THREE.Vector3(2.0, 1.0, 0.8) },
+  { key: 'k', name: 'Crash',     color: '#c084fc', pos: new THREE.Vector3(-3.2, 2.8, -0.5) },
+  { key: 's', name: 'Hi-Hat',    color: '#4ade80', pos: new THREE.Vector3(-2.5, 1.8, 0.7) },
+];
+
+const labelsDiv = document.getElementById('labels');
+const labelEls = {};
+labelData.forEach(({ key, name, color }) => {
+  const el = document.createElement('div');
+  el.className = 'lbl';
+  el.style.setProperty('--c', color);
+  el.innerHTML = `<div class="key">${key.toUpperCase()}</div><div class="name">${name}</div>`;
+  labelsDiv.appendChild(el);
+  labelEls[key] = { el, worldPos: labelData.find(d => d.key === key).pos };
+});
+
+function updateLabels() {
+  const v = new THREE.Vector3();
+  Object.entries(labelEls).forEach(([key, { el, worldPos }]) => {
+    v.copy(worldPos).project(camera);
+    const x = (v.x + 1) * 0.5 * window.innerWidth;
+    const y = (-v.y + 1) * 0.5 * window.innerHeight;
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+    el.style.opacity = v.z < 1 ? '1' : '0';
+  });
+}
+
+// ── Animation system ──────────────────────────────────────────────────────────
+const activeAnims = [];
+
+function triggerDrum(key) {
+  const piece = drumPieces[key];
+  if (!piece) return;
+
+  // Flash label
+  const lblData = labelEls[key];
+  if (lblData) {
+    lblData.el.classList.add('lit');
+    setTimeout(() => lblData.el.classList.remove('lit'), 180);
+  }
+
+  // Push animation
+  const fn = piece.animFn();
+  activeAnims.push({ key, fn });
+
+  // Play audio
+  const sound = sounds[key];
+  if (sound) { sound.currentTime = 0; sound.play().catch(() => {}); }
+}
+
+// ── Raycasting ────────────────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const pointer   = new THREE.Vector2();
+
+function onPointer(e) {
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  pointer.x =  (x / window.innerWidth)  * 2 - 1;
+  pointer.y = -(y / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(hitObjects);
+  if (hits.length) {
+    const key = hits[0].object.userData.key;
+    if (key) triggerDrum(key);
+  }
+}
+
+window.addEventListener('mousedown', onPointer);
+window.addEventListener('touchstart', e => { e.preventDefault(); onPointer(e); }, { passive: false });
+
+// ── Keyboard ──────────────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const key = e.key.toLowerCase();
+  if (drumPieces[key]) triggerDrum(key);
+});
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  controls.update();
+
+  // Run active animations; remove finished ones
+  for (let i = activeAnims.length - 1; i >= 0; i--) {
+    const stillGoing = activeAnims[i].fn();
+    if (!stillGoing) {
+      // Reset transforms
+      const piece = drumPieces[activeAnims[i].key];
+      if (piece?.group) {
+        piece.group.rotation.x = 0;
+        piece.group.rotation.z = 0;
+        piece.group.position.y = 0;
+        if (piece.group.scale) piece.group.scale.set(1,1,1);
+      }
+      activeAnims.splice(i, 1);
+    }
+  }
+
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+</body>
 </html>
