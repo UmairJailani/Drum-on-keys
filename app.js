@@ -1,44 +1,75 @@
 'use strict';
 
-const sounds = {
-  w: new Audio('sounds/tom-1.mp3'),
-  a: new Audio('sounds/tom-2.mp3'),
-  s: new Audio('sounds/tom-3.mp3'),
-  d: new Audio('sounds/tom-4.mp3'),
-  j: new Audio('sounds/snare.mp3'),
-  k: new Audio('sounds/crash.mp3'),
-  l: new Audio('sounds/kick-bass.mp3'),
-};
+// ── Audio ──────────────────────────────────────────────────
+const SOUNDS = {};
+['crash', 'kick-bass', 'snare', 'tom-1', 'tom-2', 'tom-3', 'tom-4'].forEach(name => {
+  SOUNDS[name] = new Audio(`sounds/${name}.mp3`);
+});
 
-const pieces = document.querySelectorAll('.piece:not(.deco)');
-
-const keyMap = {};
-pieces.forEach(p => { keyMap[p.dataset.key] = p; });
-
-function hit(piece) {
-  const sound = sounds[piece.dataset.key];
-  if (!sound) return;
-
-  sound.currentTime = 0;
-  sound.play().catch(() => {});
-
-  // Reset animation by removing class, force reflow, re-add
-  piece.classList.remove('hit');
-  void piece.offsetWidth;
-  piece.classList.add('hit');
-
-  // Remove after animation completes
-  const dur = piece.dataset.type === 'cymbal' ? 520 : 200;
-  setTimeout(() => piece.classList.remove('hit'), dur);
+function playSound(name) {
+  const a = SOUNDS[name];
+  if (!a) return;
+  a.currentTime = 0;
+  a.play().catch(() => {});
 }
 
-pieces.forEach(p => {
-  p.addEventListener('mousedown', () => hit(p));
-  p.addEventListener('touchstart', e => { e.preventDefault(); hit(p); }, { passive: false });
-});
+// ── Hit ────────────────────────────────────────────────────
+const HIT_MS = 110;
+
+function hitPad(pad) {
+  playSound(pad.dataset.sound);
+
+  pad.classList.remove('hit');
+  void pad.offsetWidth; // force reflow so animation restarts on rapid hits
+  pad.classList.add('hit');
+
+  clearTimeout(pad._t);
+  pad._t = setTimeout(() => pad.classList.remove('hit'), HIT_MS);
+}
+
+// ── Keyboard ───────────────────────────────────────────────
+const keyMap = {};
+document.querySelectorAll('.pad').forEach(p => { keyMap[p.dataset.key] = p; });
 
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
-  const p = keyMap[e.key.toLowerCase()];
-  if (p) hit(p);
+  const pad = keyMap[e.key.toLowerCase()];
+  if (pad) hitPad(pad);
 });
+
+// ── Pointer events (mouse + stylus + multi-touch) ──────────
+// setPointerCapture lets each finger own its pad independently
+document.querySelectorAll('.pad').forEach(pad => {
+  pad.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    pad.setPointerCapture(e.pointerId);
+    hitPad(pad);
+  }, { passive: false });
+});
+
+// ── Service worker ─────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// ── PWA install prompt ─────────────────────────────────────
+let deferredPrompt = null;
+const installBtn = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.hidden = false;
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBtn.hidden = true;
+});
+
+window.addEventListener('appinstalled', () => { installBtn.hidden = true; });

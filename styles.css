@@ -1,240 +1,215 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  background: #1a1008;
-  min-height: 100vh;
+html, body {
+  width: 100%;
+  height: 100%;
+  min-height: 100svh;
+  background: #08080f;
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
 }
 
-/* ── Scene wrapper ── */
-.scene {
-  width: min(96vw, 820px);
+/* Dot-grid backdrop */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.055) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Radial vignette */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+header {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: clamp(10px, 2.2vmin, 20px) 0 clamp(6px, 1.4vmin, 14px);
+}
+
+h1 {
+  font-size: clamp(16px, 3.8vmin, 26px);
+  font-weight: 800;
+  letter-spacing: 7px;
+  text-transform: uppercase;
+  color: #c8a060;
+}
+h1 span { color: #f43f5e; }
+
+.hint {
+  margin-top: 5px;
+  font-size: clamp(9px, 1.6vmin, 11px);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.18);
+}
+
+#install-btn {
+  display: none;
+  margin-top: 10px;
+  padding: 6px 18px;
+  border: 1.5px solid rgba(200,160,96,0.4);
+  border-radius: 20px;
+  background: transparent;
+  color: #c8a060;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+#install-btn:not([hidden]) { display: inline-block; }
+#install-btn:hover { border-color: #c8a060; }
+
+/* ── Drum grid ───────────────────────────────────────────── */
+.drum-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(8px, 2vmin, 14px);
+  padding: clamp(8px, 2vmin, 14px);
+  width: 100%;
+  max-width: min(880px, 95vw);
+}
+
+/* ── Pad base ────────────────────────────────────────────── */
+.pad {
+  position: relative;
+  border-radius: clamp(10px, 2.5vmin, 16px);
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(150deg, #141425 0%, #0d0d1b 100%);
+  border: 2px solid rgba(var(--rgb), 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 6px 28px rgba(0,0,0,0.65),
+    0 0 18px rgba(var(--rgb), 0.05);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-/* ── Wood floor ── */
-.floor {
-  width: 100%;
-  padding-bottom: 70%;
-  position: relative;
-  border-radius: 20px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 9%;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
   overflow: hidden;
-  background:
-    repeating-linear-gradient(
-      88deg,
-      transparent 0px, transparent 38px,
-      rgba(0,0,0,0.06) 38px, rgba(0,0,0,0.06) 40px,
-      transparent 40px, transparent 78px,
-      rgba(255,255,255,0.02) 78px, rgba(255,255,255,0.02) 79px
-    ),
-    repeating-linear-gradient(
-      180deg,
-      rgba(0,0,0,0) 0px, rgba(0,0,0,0) 80px,
-      rgba(0,0,0,0.04) 80px, rgba(0,0,0,0.04) 82px
-    ),
-    linear-gradient(170deg, #4a3020 0%, #3a2418 35%, #2e1c10 65%, #3a2418 100%);
-  box-shadow: inset 0 0 80px rgba(0,0,0,0.6), 0 8px 40px rgba(0,0,0,0.8);
 }
 
-/* ── Persian rug ── */
-.carpet {
-  position: absolute;
-  left: 12%; right: 12%; top: 15%; bottom: 5%;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 55%,
-      rgba(80,30,20,0.85) 0%,
-      rgba(60,20,12,0.8) 50%,
-      transparent 100%
-    );
-  border-radius: 50%;
-  /* Rug border pattern via box shadow */
-  box-shadow:
-    inset 0 0 0 3px rgba(120,60,20,0.4),
-    inset 0 0 0 8px rgba(60,20,10,0.3),
-    inset 0 0 0 12px rgba(140,70,25,0.25);
-}
-
-/* ── Kit container ── */
-.kit {
+/* Diagonal mesh texture */
+.pad::before {
+  content: '';
   position: absolute;
   inset: 0;
-}
-
-/* ── Piece base ── */
-.piece {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  transition: filter 0.1s ease;
-}
-.piece.deco { cursor: default; pointer-events: none; opacity: 0.55; }
-.piece:focus { outline: none; }
-
-/* ── SVG sizes ── */
-.drum-svg   { display: block; transition: transform 0.1s ease, filter 0.1s ease; }
-.cymbal-svg { display: block; transition: transform 0.15s ease, filter 0.15s ease; }
-
-/* ── Labels ── */
-.label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  margin-top: 2px;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0px,
+    transparent 4px,
+    rgba(255,255,255,0.013) 4px,
+    rgba(255,255,255,0.013) 5px
+  );
   pointer-events: none;
 }
-.key-badge {
-  font-size: clamp(10px, 1.6vw, 15px);
-  font-weight: 800;
-  color: var(--c, #f97316);
-  line-height: 1;
-  text-shadow: 0 0 10px currentColor;
-  letter-spacing: 0.5px;
-}
-.dname {
-  font-size: clamp(7px, 1vw, 10px);
-  font-weight: 600;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.25);
-  line-height: 1;
-}
 
-/* ── POSITIONS — % of .floor (left / top = centre of element) ── */
-/* Matching photo layout:
-   Crash left   Hi-Hat   [HighTom MidTom]    Ride/deco
-                          [    Bass    ]
-               Snare                  FloorTom
-                          Throne
-*/
-.crash-left-pos { left: 13%; top: 20%; width: 20%; }
-.hihat-pos      { left: 10%; top: 48%; width: 16%; }
-.hightom-pos    { left: 36%; top: 25%; width: 17%; }
-.midtom-pos     { left: 54%; top: 21%; width: 17%; }
-.ride-pos       { display: none; } /* replaced by deco below */
-.ride-deco-pos  { left: 80%; top: 22%; width: 22%; }
-.snare-pos      { left: 27%; top: 58%; width: 20%; }
-.bass-pos       { left: 52%; top: 50%; width: 26%; }
-.floortom-pos   { left: 74%; top: 56%; width: 20%; }
-
-/* ── Sticks ── */
-.sticks { position: absolute; left: 50%; top: 62%; transform: translate(-50%,-50%); width: 20%; pointer-events: none; }
-.stick  {
+/* Inner sensor ring + top sheen */
+.pad::after {
+  content: '';
   position: absolute;
-  height: 3px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #c8a060 0%, #d4b070 40%, #e8c880 60%, #c8a060 100%);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
-  width: 200%;
-}
-.stick-l { transform: rotate(-30deg) translateX(-10%); top: 0; }
-.stick-r { transform: rotate(15deg)  translateX(-5%);  top: 6px; }
-
-/* ── Throne ── */
-.throne {
-  position: absolute;
-  left: 50%; top: 86%;
+  width: 48%;
+  aspect-ratio: 1;
+  top: 36%;
+  left: 50%;
   transform: translate(-50%, -50%);
-  width: 9%;
-  padding-bottom: 6%;
-  background: radial-gradient(ellipse at 40% 35%, #2a2a2a 0%, #111 100%);
   border-radius: 50%;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 0 0 2px #333;
-  pointer-events: none;
+  border: 1.5px solid rgba(var(--rgb), 0.14);
+  box-shadow: inset 0 0 10px rgba(var(--rgb), 0.04);
+  transition: border-color 0.08s, box-shadow 0.08s;
 }
 
-/* ── Cymbal: tilt to look 3D ── */
-.cymbal-svg {
-  transform: perspective(300px) rotateX(55deg) scaleY(0.8);
-  transform-origin: center bottom;
-  filter: drop-shadow(0 12px 20px rgba(0,0,0,0.6));
+/* Kick bar — spans all 3 columns */
+.pad-kick {
+  grid-column: 1 / -1;
+  aspect-ratio: unset;
+  height: clamp(62px, 13vmin, 100px);
 }
-.hihat-svg {
-  transform: perspective(200px) rotateX(50deg) scaleY(0.75);
-}
-.ride-svg {
-  transform: perspective(400px) rotateX(52deg) scaleY(0.78);
+.pad-kick::after {
+  width: 18%;
+  top: 50%;
 }
 
-/* ── Hit animations ── */
-
-/* Drum hit: bounce + ripple */
-.drum-piece.hit .drum-svg {
-  animation: drum-bounce 0.18s ease-out;
+/* ── Key + label ─────────────────────────────────────────── */
+.key {
+  position: relative;
+  z-index: 1;
+  font: 800 clamp(22px, 5.5vmin, 42px) / 1 'SF Mono', 'Courier New', monospace;
+  color: rgba(var(--rgb), 1);
+  text-shadow: 0 0 18px rgba(var(--rgb), 0.4);
 }
-@keyframes drum-bounce {
+
+.name {
+  position: relative;
+  z-index: 1;
+  font: 600 clamp(7px, 1.5vmin, 11px) / 1 system-ui;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.22);
+}
+
+/* ── Hit state ───────────────────────────────────────────── */
+@keyframes strike {
   0%   { transform: scale(1); }
-  25%  { transform: scale(0.92); }
-  60%  { transform: scale(1.03); }
+  20%  { transform: scale(0.93); }
   100% { transform: scale(1); }
 }
 
-.drum-piece.hit .drum-svg {
-  filter: drop-shadow(0 0 18px rgba(255,255,255,0.5)) drop-shadow(0 0 8px rgba(255,200,100,0.4));
+.pad.hit {
+  animation: strike 0.11s ease-out forwards;
+  border-color: rgba(var(--rgb), 0.92);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 38%, rgba(var(--rgb), 0.22) 0%, rgba(var(--rgb), 0.06) 55%, transparent 100%),
+    linear-gradient(150deg, #141425 0%, #0d0d1b 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 6px 28px rgba(0,0,0,0.65),
+    0 0 30px rgba(var(--rgb), 0.6),
+    0 0 65px rgba(var(--rgb), 0.22);
 }
 
-/* Ripple on drum head */
-.drum-piece.hit .ripple {
-  animation: drum-ripple 0.4s ease-out forwards;
-}
-@keyframes drum-ripple {
-  0%   { r: 5;  opacity: 0.8; stroke-width: 3; }
-  100% { r: 34; opacity: 0;   stroke-width: 0.5; }
+.pad.hit::after {
+  border-color: rgba(var(--rgb), 0.5);
+  box-shadow: 0 0 20px rgba(var(--rgb), 0.35);
 }
 
-/* Cymbal hit: wobble */
-.cymbal-piece.hit .cymbal-svg {
-  animation: cymbal-wobble 0.5s ease-out;
-  filter: drop-shadow(0 0 20px rgba(200,150,30,0.8)) drop-shadow(0 12px 20px rgba(0,0,0,0.6));
-}
-.cymbal-piece.hit .hihat-svg {
-  animation: cymbal-wobble 0.5s ease-out;
-}
-@keyframes cymbal-wobble {
-  0%   { transform: perspective(300px) rotateX(55deg) scaleY(0.8) rotateZ(0deg); }
-  15%  { transform: perspective(300px) rotateX(60deg) scaleY(0.72) rotateZ(-4deg) scale(0.95); }
-  35%  { transform: perspective(300px) rotateX(50deg) scaleY(0.86) rotateZ(3deg)  scale(1.03); }
-  55%  { transform: perspective(300px) rotateX(57deg) scaleY(0.78) rotateZ(-2deg) scale(0.98); }
-  75%  { transform: perspective(300px) rotateX(53deg) scaleY(0.82) rotateZ(1deg)  scale(1.01); }
-  100% { transform: perspective(300px) rotateX(55deg) scaleY(0.8)  rotateZ(0deg); }
+.pad.hit .key {
+  text-shadow: 0 0 28px rgba(var(--rgb), 1), 0 0 55px rgba(var(--rgb), 0.5);
 }
 
-/* ── UI bar ── */
-.ui-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4px;
-}
-.title {
-  font-size: clamp(1rem, 3vw, 1.5rem);
-  font-weight: 800;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: #c0a060;
-}
-.title .accent { color: #f43f5e; }
-.hint {
-  font-size: clamp(9px, 1.4vw, 12px);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #3a2a1a;
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  header { padding: 4px 0; }
+  h1 { font-size: 13px; letter-spacing: 5px; }
+  .hint { display: none; }
+  .drum-grid { gap: 5px; padding: 5px; }
+  .pad-kick { height: clamp(48px, 11vmin, 70px); }
 }
 
-/* ── Mobile ── */
-@media (max-width: 500px) {
-  .floor { border-radius: 12px; }
-  .ui-bar { flex-direction: column; gap: 4px; text-align: center; }
+@media (max-width: 380px) {
+  .drum-grid { gap: 6px; padding: 6px; }
 }
