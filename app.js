@@ -118,20 +118,25 @@ function flash(id) {
   const zone = glow ? glow.parentElement : null;
   const led = pad.querySelector('.pad-led');
   const acc = accentColor();
-  pad.style.transition = 'none';
-  pad.style.transform = 'translateY(3px)';
-  pad.style.boxShadow = '0 0 0 4px ' + acc + ', 0 0 30px 4px ' + acc + ', 0 10px 18px rgba(0,0,0,.55)';
+
+  // The dip + glowing ring is a real CSS @keyframes animation (see .pad.is-hit
+  // in styles.css) instead of manually toggling styles with transitions --
+  // box-shadow doesn't affect layout, so there's no reliable way to force a
+  // browser to paint an instant "bright" style before immediately animating
+  // it away; a keyframe animation always plays start-to-end regardless.
+  pad.classList.remove('is-hit');
+  void pad.offsetWidth; // restart the animation if the pad is hit again quickly
+  pad.classList.add('is-hit');
+
   if (zone) { zone.style.transition = 'none'; zone.style.transform = 'scale(.94)'; }
   if (glow) { glow.style.transition = 'none'; glow.style.opacity = '1'; }
   if (led) { led.style.background = acc; led.style.boxShadow = '0 0 10px ' + acc + ', 0 0 0 1px rgba(0,0,0,.4)'; }
-  void pad.offsetWidth; // force the browser to commit/paint the bright frame above before animating it away below
+  void pad.offsetWidth;
   requestAnimationFrame(() => {
-    pad.style.transition = 'transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .4s ease';
-    pad.style.transform = 'translateY(0)';
-    pad.style.boxShadow = '0 10px 18px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.09), inset 0 -14px 26px rgba(0,0,0,.5)';
     if (zone) { zone.style.transition = 'transform .18s cubic-bezier(.2,.8,.3,1)'; zone.style.transform = 'scale(1)'; }
-    if (glow) { glow.style.opacity = '0'; }
+    if (glow) { glow.style.transition = 'opacity .42s ease'; glow.style.opacity = '0'; }
     if (led) {
+      led.style.transition = 'background .5s ease, box-shadow .5s ease';
       led.style.background = 'color-mix(in srgb, ' + acc + ' 38%, #0a0c0f)';
       led.style.boxShadow = '0 0 0 1px rgba(0,0,0,.5)';
     }
