@@ -1,17 +1,12 @@
-const CACHE = 'drumkit-v2';
+const CACHE = 'groove-pad-v3';
 const ASSETS = [
   './',
   './index.html',
+  './styles.css',
+  './app.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './sounds/crash.mp3',
-  './sounds/kick-bass.mp3',
-  './sounds/snare.mp3',
-  './sounds/tom-1.mp3',
-  './sounds/tom-2.mp3',
-  './sounds/tom-3.mp3',
-  './sounds/tom-4.mp3',
 ];
 
 self.addEventListener('install', e =>

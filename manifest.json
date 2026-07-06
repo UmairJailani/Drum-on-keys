@@ -1,11 +1,11 @@
 {
-  "name": "Drum Kit",
-  "short_name": "Drum Kit",
-  "description": "Electric drum kit — play with keyboard, mouse, or touch",
+  "name": "TD-POV Groove Pad",
+  "short_name": "Groove Pad",
+  "description": "Electronic drum pad with a Simon-says memory game — play with keyboard, mouse, or touch",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#08080f",
-  "theme_color": "#08080f",
+  "background_color": "#05070a",
+  "theme_color": "#05070a",
   "orientation": "any",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
